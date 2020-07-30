@@ -28,6 +28,8 @@ int main(int argc, char* argv[]) {
 	}
     char strip[20]={0};
     uint32_t * checkip;
+    uint16_t * checkop;
+
 
 	char* dev = argv[1];
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -36,12 +38,8 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "couldn't open device %s(%s)\n", dev, errbuf);
         return -1;
 	}
-    printf("%s",strip);
-    pcap_t* handle2 = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
-    if (handle2 == nullptr) {
-        fprintf(stderr, "couldn't open device %s(%s)\n", dev, errbuf);
-        return -1;
-    }
+
+
 
 
     const u_char *repacket;
@@ -125,30 +123,33 @@ sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],m
     while(1){
 
     struct pcap_pkthdr *header;
-    pres=pcap_next_ex(handle2,&header,&repacket);
+    pres=pcap_next_ex(handle,&header,&repacket);
     if(pres==0) continue;
     if(pres==-1&&pres==-2)
     {
         break;
     }
-    struct arphdr{
-        uint8_t data[28];
-    };
-        arphdr * pp;
-        pp=(struct arphdr *)(repacket+14);
-        checkip = (uint32_t *)(repacket+28);
+        struct tmacdata {
+        uint8_t data[6];
+        };
+        tmacdata * pp;
 
+        pp=(struct tmacdata *)(repacket+22);
+
+        checkip = (uint32_t *)(repacket+28);
+        checkop= (uint16_t *)(repacket+20);
         printf("\n %02x : ",htonl(Ip(argv[2])));
         printf(" %02x \n",*checkip);
 
-        if(pp->data[7]==0x02&&htonl(Ip(argv[2]))==*checkip)
+
+        if(*checkop==512&&htonl(Ip(argv[2]))==*checkip)
     {
 
-        sprintf(tmacdr,"%02x:%02x:%02x:%02x:%02x:%02x",pp->data[8],pp->data[9],pp->data[10],pp->data[11],pp->data[12],pp->data[13]);
+        sprintf(tmacdr,"%02x:%02x:%02x:%02x:%02x:%02x",pp->data[0],pp->data[1],pp->data[2],pp->data[3],pp->data[4],pp->data[5]);
         break;
     }
 
-    printf("%02x \n",pp->data[7]);
+    printf("%02x \n",htons(*checkop));
 }
     printf("\n\n%s\n\n",tmacdr);
 
@@ -179,5 +180,5 @@ sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],m
 	}
 
 	pcap_close(handle);
-    pcap_close(handle2);
+
 }
