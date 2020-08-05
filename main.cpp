@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 		usage();
 		return -1;
 	}
-    char strip[20]={0};
+    Ip strip;
     uint32_t * checkip;
     uint16_t * checkop;
 
@@ -57,9 +57,9 @@ int main(int argc, char* argv[]) {
     //getmymac socket
     struct ifreq ifr;
     int s;
-    char mymac[40];
+   Mac mymac;// char mymac[40];
 
-    unsigned char macaddr[10];
+   // unsigned char macaddr[10];
     s= socket(AF_INET, SOCK_DGRAM,0);
     strncpy(ifr.ifr_name,argv[1],IFNAMSIZ);
     if(ioctl(s,SIOCGIFHWADDR,&ifr)<0){
@@ -67,11 +67,11 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     else {
-        for(int i=0; i<6; i++){
-            macaddr[i]=(unsigned char)ifr.ifr_hwaddr.sa_data[i];
+     //   for(int i=0; i<6; i++){
+       //     macaddr[i]=(unsigned char)ifr.ifr_hwaddr.sa_data[i];
+        memcpy(&mymac,ifr.ifr_hwaddr.sa_data,6);
 
-    }
-sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
+//sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
 
     }
 
@@ -87,18 +87,16 @@ sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],m
         return -1;
     }
    else {
-      sprintf(strip,"%d.%d.%d.%d",(unsigned char)ifrip.ifr_addr.sa_data[2],(unsigned char)ifrip.ifr_addr.sa_data[3],(unsigned char)ifrip.ifr_addr.sa_data[4],(unsigned char)ifrip.ifr_addr.sa_data[5]);
-
+     memcpy(&strip,ifrip.ifr_addr.sa_data,6);
     }
-    printf("%s",strip);
-   printf("\n\n%s\n\n",mymac);
+
 
     //
 
     // etherppacket request
     EthArpPacket packetreq;
     packetreq.eth_.dmac_ = Mac("ff:ff:ff:ff:ff:ff");// modified dmac
-    packetreq.eth_.smac_ = Mac(mymac);
+    packetreq.eth_.smac_ = mymac;
     packetreq.eth_.type_ = htons(EthHdr::Arp);
 
     packetreq.arp_.hrd_ = htons(ArpHdr::ETHER);
@@ -106,7 +104,7 @@ sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],m
     packetreq.arp_.hln_ = Mac::SIZE;
     packetreq.arp_.pln_ = Ip::SIZE;
     packetreq.arp_.op_ = htons(ArpHdr::Request);
-    packetreq.arp_.smac_ = Mac(mymac);
+    packetreq.arp_.smac_ = mymac;
     packetreq.arp_.sip_ = htonl(Ip(strip));
     packetreq.arp_.tmac_ = Mac("00:00:00:00:00:00");
     packetreq.arp_.tip_ = htonl(Ip(argv[2]));
@@ -117,7 +115,7 @@ sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],m
     }
     // get packet
     pres=0;
-    char tmacdr[10];
+    Mac tmacdr;//char tmacdr[10];
 
 
     while(1){
@@ -129,38 +127,34 @@ sprintf(mymac,"%02x:%02x:%02x:%02x:%02x:%02x",macaddr[0],macaddr[1],macaddr[2],m
     {
         break;
     }
-        struct tmacdata {
-        uint8_t data[6];
-        };
-        tmacdata * pp;
-
-        pp=(struct tmacdata *)(repacket+22);
-
-        checkip = (uint32_t *)(repacket+28);
-        checkop= (uint16_t *)(repacket+20);
-        printf("\n %02x : ",htonl(Ip(argv[2])));
-        printf(" %02x \n",*checkip);
 
 
-        if(*checkop==512&&htonl(Ip(argv[2]))==*checkip)
-    {
+        ArpHdr *tt;
+        tt=(struct ArpHdr *)(repacket+14);
 
-        sprintf(tmacdr,"%02x:%02x:%02x:%02x:%02x:%02x",pp->data[0],pp->data[1],pp->data[2],pp->data[3],pp->data[4],pp->data[5]);
+        //tt->tmac_
+
+
+
+
+        printf("\ncheck ip %02x\n",htonl(Ip(argv[2])));
+
+        printf("htonl checkip :%02x\n",tt->sip_);
+        printf("%02x\n",ntohs(tt->op_));
+
+        if(ntohs(tt->op_)==ArpHdr::Reply &&htonl(Ip(argv[2]))==tt->sip_)
+        {
+            memcpy(&tmacdr,tt->smac_,6);
         break;
     }
 
-    printf("%02x \n",htons(*checkop));
 }
-    printf("\n\n%s\n\n",tmacdr);
-
-
-
 
     //
 
     EthArpPacket packet;
 
-    packet.eth_.dmac_ = Mac(tmacdr);// modified dmac
+    packet.eth_.dmac_ = tmacdr;// modified dmac
     packet.eth_.smac_ = Mac(mymac);
 	packet.eth_.type_ = htons(EthHdr::Arp);
 
