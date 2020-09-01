@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
    else {
-     memcpy(&strip,ifrip.ifr_addr.sa_data,6);
+     memcpy(&strip,ifrip.ifr_addr.sa_data+2,4);
     }
 
 
